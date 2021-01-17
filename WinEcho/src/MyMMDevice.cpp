@@ -110,7 +110,7 @@ extern "C" {
 		memcpy_s((void*)idStr, *length * sizeof(wchar_t), id.c_str(), (id.length() + 1) * sizeof(wchar_t));
 	}
 
-	void deivceName(void* device, const wchar_t* nameStr, unsigned int* length) {
+	void deviceName(void* device, const wchar_t* nameStr, unsigned int* length) {
 		if (device == nullptr) {
 			return;
 		}

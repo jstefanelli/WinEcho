@@ -40,7 +40,7 @@ extern "C" {
 	extern WINECHO_API void releaseDeviceInstance(void* device);
 
 	extern WINECHO_API void deviceId(void* device, const wchar_t* idStr, unsigned int* length);
-	extern WINECHO_API void deivceName(void* device, const wchar_t* nameStr, unsigned int* length);
+	extern WINECHO_API void deviceName(void* device, const wchar_t* nameStr, unsigned int* length);
 	extern WINECHO_API void deviceDescription(void* device, const wchar_t* descStr, unsigned int* length);
 
 #ifdef __cplusplus

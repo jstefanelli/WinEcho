@@ -100,7 +100,7 @@ extern "C" {
 	}
 
 
-	void* deviceEnumeratorGetDevicByIndex(void* deviceEnumerator, size_t index) {
+	void* deviceEnumeratorGetDeviceByIndex(void* deviceEnumerator, size_t index) {
 		if (deviceEnumerator == nullptr) {
 			return nullptr;
 		}

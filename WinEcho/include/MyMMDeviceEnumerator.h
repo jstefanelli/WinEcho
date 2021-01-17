@@ -28,7 +28,7 @@ extern "C" {
 	extern WINECHO_API void releaseDeviceEnumerator(void* deviceEnumerator);
 
 	extern WINECHO_API size_t deviceEnumeratorGetDeviceCount(void* deviceEnumerator);
-	extern WINECHO_API void* deviceEnumeratorGetDevicByIndex(void* deviceEnumerator, size_t index);
+	extern WINECHO_API void* deviceEnumeratorGetDeviceByIndex(void* deviceEnumerator, size_t index);
 	extern WINECHO_API void* deviceEnumeratorGetDeviceByName(void* deviceEnumerator, LPWSTR name);
 #ifdef __cplusplus
 }

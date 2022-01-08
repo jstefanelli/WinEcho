@@ -153,9 +153,9 @@ namespace winecho {
 		if (amount > bufferSize)
 			return false;
 
-		while (amount > bufferSize - availableData) {
+		while (amount >= bufferSize - availableData) {
 			waitWriteAmount = amount;
-			//std::cout << "Locking zero" << std::endl;
+			//std::cout << "Locking write" << std::endl;
 			DWORD waitRes = WaitForSingleObject(writeSemaphore, timeout);
 			if (waitRes != WAIT_OBJECT_0) {
 				waitWriteAmount = 0;
@@ -182,6 +182,8 @@ namespace winecho {
 		else {
 			freeData = myPointer + myAvailableData;
 		}
+
+		size_t freeDataOffset = freeData - data.begin();
 
 		if (data.end() - amount <= freeData) {
 			size_t currentAmount = data.end() - freeData;

@@ -8,6 +8,7 @@ namespace winecho {
 		captureDevice = sourceDevice;
 		renderDevice = targetDevice;
 		InitializeSynchronizationBarrier(&setupBarrier, 2, -1);
+		error_mutex = CreateMutex(NULL, FALSE, NULL);
 		running = false;
 	}
 
@@ -16,6 +17,7 @@ namespace winecho {
 		if (running) {
 			Stop(true);
 		}
+		CloseHandle(error_mutex);
 	}
 
 	DWORD __stdcall StreamInstance::captureThread(LPVOID params) {
@@ -24,6 +26,7 @@ namespace winecho {
 		HRESULT hr = CoInitialize(NULL);
 		if (FAILED(hr)) {
 			id->running = false;
+			id->pushError(WINECHO_STREAMINSTANCE_ERROR_COM_INIT_FAILURE);
 			return 1;
 		}
 
@@ -39,6 +42,7 @@ namespace winecho {
 		HRESULT hr = CoInitialize(NULL);
 		if (FAILED(hr)) {
 			id->running = false;
+			id->pushError(WINECHO_STREAMINSTANCE_ERROR_COM_INIT_FAILURE);
 			return 1;
 		}
 
@@ -53,8 +57,15 @@ namespace winecho {
 		if(running)
 			return true;
 		
-		if(captureDevice == nullptr || renderDevice == nullptr)
+		if (captureDevice == nullptr) {
+			pushError(WINECHO_STREAMINSTANCE_ERROR_NO_CAPTURE_DEVICE);
 			return false;
+		}
+
+		if (renderDevice == nullptr) {
+			pushError(WINECHO_STREAMINSTANCE_ERROR_NO_RENDER_DEVICE);
+			return false;
+		}
 
 		running = true;
 		threads[0] = CreateThread(NULL, NULL, captureThread, (LPVOID)this, NULL, NULL);
@@ -93,6 +104,7 @@ namespace winecho {
 		auto sourceClient = device->Activate();
 		if (sourceClient == nullptr) {
 			running = false;
+			pushError(WINECHO_STREAMINSTANCE_ERROR_CAPTURE_ACTIVATION_FAILED);
 			return;
 		}
 
@@ -105,12 +117,14 @@ namespace winecho {
 		EnterSynchronizationBarrier(&setupBarrier, NULL);
 		if (!CheckFormats(captureFormat, renderFormat)) {
 			running = false;
+			pushError(WINECHO_STREAMINSTANCE_ERROR_CAPTURE_FORMAT_MATCH_FAILED);
 			return;
 		}
 
 		HRESULT hr = sourceClient->Initialize(desiredLatency * MyAudioClient::REFTIMES_PER_MILLISEC, true, true);
 		if (FAILED(hr)) {
 			running = false;
+			pushError(WINECHO_STREAMINSTANCE_ERROR_CAPTURE_INIT_FAILED);
 			return;
 		}
 
@@ -118,6 +132,7 @@ namespace winecho {
 
 		if (eventHandle == NULL) {
 			running = false;
+			pushError(WINECHO_STREAMINSTANCE_ERROR_CAPTURE_EVENT_FAILED);
 			CoUninitialize();
 			return;
 		}
@@ -125,6 +140,7 @@ namespace winecho {
 		hr = sourceClient->SetEventHandle(eventHandle);
 		if (FAILED(hr)) {
 			running = false;
+			pushError(WINECHO_STREAMINSTANCE_ERROR_CAPTURE_SETEVENT_FAILED);
 			CoUninitialize();
 			return;
 		}
@@ -134,6 +150,7 @@ namespace winecho {
 		auto sourceCapture = sourceClient->GetCaptureClientService();
 		if (sourceCapture == nullptr) {
 			running = false;
+			pushError(WINECHO_STREAMINSTANCE_ERROR_CAPTURE_GETCLIENT_FAILED);
 			return;
 		}
 
@@ -144,6 +161,7 @@ namespace winecho {
 		hr = sourceClient->Start();
 		if (FAILED(hr)) {
 			running = false;
+			pushError(WINECHO_STREAMINSTANCE_ERROR_CAPTURE_CLIENT_START_FAILED);
 			return;
 		}
 
@@ -160,6 +178,7 @@ namespace winecho {
 			hr = sourceCapture->GetNextPacketSize(&nextSourcePacketSize);
 			if (FAILED(hr)) {
 				running = false;
+				pushError(WINECHO_STREAMINSTANCE_ERROR_CAPTURE_GETPACKETSIZE_FAILED);
 				return;
 			}
 
@@ -167,6 +186,7 @@ namespace winecho {
 				hr = sourceCapture->GetBuffer(&sourceFramesAvailable, &sourceBuffer, &sourceFlags);
 				if (FAILED(hr)) {
 					running = false;
+					pushError(WINECHO_STREAMINSTANCE_ERROR_CAPTURE_GETBUFFER_FAILED);
 					return;
 				}
 
@@ -188,6 +208,7 @@ namespace winecho {
 				hr = sourceCapture->ReleaseBuffer(sourceFramesAvailable);
 				if (FAILED(hr)) {
 					running = false;
+					pushError(WINECHO_STREAMINSTANCE_ERROR_CAPTURE_RELEASEBUFFER_FAILED);
 					return;
 				}
 			}
@@ -202,6 +223,7 @@ namespace winecho {
 		auto targetClient = device->Activate();
 		if (targetClient == nullptr) {
 			running = false;
+			pushError(WINECHO_STREAMINSTANCE_ERROR_NO_RENDER_DEVICE);
 			return;
 		}
 
@@ -214,12 +236,14 @@ namespace winecho {
 		EnterSynchronizationBarrier(&setupBarrier, NULL);
 		if (!CheckFormats(captureFormat, renderFormat)) {
 			running = false;
+			pushError(WINECHO_STREAMINSTANCE_ERROR_RENDER_FORMAT_MATCH_FAILED);
 			return;
 		}
 
 		HRESULT hr = targetClient->Initialize(desiredLatency * MyAudioClient::REFTIMES_PER_MILLISEC, false, true);
 		if (FAILED(hr)) {
 			running = false;
+			pushError(WINECHO_STREAMINSTANCE_ERROR_RENDER_INIT_FAILED);
 			return;
 		}
 
@@ -227,12 +251,14 @@ namespace winecho {
 
 		if (eventHandle == NULL) {
 			running = false;
+			pushError(WINECHO_STREAMINSTANCE_ERROR_RENDER_EVENT_FAILED);
 			return;
 		}
 
 		hr = targetClient->SetEventHandle(eventHandle);
 		if (FAILED(hr)) {
 			running = false;
+			pushError(WINECHO_STREAMINSTANCE_ERROR_RENDER_SETEVENT_FAILED);
 			return;
 		}
 
@@ -241,6 +267,7 @@ namespace winecho {
 		auto targetRender = targetClient->GetRenderClientService();
 		if (targetRender == nullptr) {
 			running = false;
+			pushError(WINECHO_STREAMINSTANCE_ERROR_RENDER_GETCLIENT_FAILED);
 			return;
 		}
 
@@ -256,6 +283,7 @@ namespace winecho {
 			hr = targetClient->Start();
 			if (FAILED(hr)) {
 				running = false;
+				pushError(WINECHO_STREAMINSTANCE_ERROR_RENDER_CLIENT_START_FAILED);
 				return;
 			}
 			targetStarted = true;
@@ -277,6 +305,7 @@ namespace winecho {
 				hr = targetRender->GetBuffer(availableFrames, &targetBuffer);
 				if (FAILED(hr) || targetBuffer == nullptr) {
 					running = false;
+					pushError(WINECHO_STREAMINSTANCE_ERROR_RENDER_GETBUFFER_FAILED);
 					return;
 				}
 
@@ -289,6 +318,7 @@ namespace winecho {
 				hr = targetRender->ReleaseBuffer(availableFrames, 0);
 				if (FAILED(hr)) {
 					running = false;
+					pushError(WINECHO_STREAMINSTANCE_ERROR_RENDER_RELEASEBUFFER_FAILED);
 					return;
 				}
 			}
@@ -297,6 +327,33 @@ namespace winecho {
 		if (targetStarted) {
 			hr = targetClient->Stop();
 		}
+	}
+
+	void StreamInstance::pushError(DWORD error) {
+		if (error == WINECHO_STREAMINSTANCE_OK)
+			return;
+
+		WaitForSingleObject(error_mutex, INFINITE);
+
+		errors.push(error);
+
+		ReleaseMutex(error_mutex);
+	}
+
+	DWORD StreamInstance::GetError() {
+		WaitForSingleObject(error_mutex, INFINITE);
+
+		DWORD error;
+		if (errors.size() == 0) {
+			error = WINECHO_STREAMINSTANCE_OK;
+		}
+		else {
+			error = errors.top();
+			errors.pop();
+		}
+		ReleaseMutex(error_mutex);
+
+		return error;
 	}
 }
 
@@ -352,5 +409,14 @@ extern "C" {
 
 		auto* handle = getHandle<winecho::StreamInstance>(streamInstance);
 		return (*handle)->Stop(wait);
+	}
+
+	DWORD streamInstanceGetError(void* streamInstance) {
+		if(streamInstance == nullptr) {
+			return -1;
+		}
+
+		auto* handle = getHandle<winecho::StreamInstance>(streamInstance);
+		return (*handle)->GetError();
 	}
 }

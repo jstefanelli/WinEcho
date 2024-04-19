@@ -30,9 +30,13 @@ namespace winecho {
 
 
 	HRESULT MyAudioClient::Initialize(REFERENCE_TIME referenceTime, bool loopback, bool eventBased) {
+		auto flags = (loopback ? AUDCLNT_STREAMFLAGS_LOOPBACK : 0) | (eventBased ? AUDCLNT_STREAMFLAGS_EVENTCALLBACK : 0);
+
+		bool is_loopback = (flags & AUDCLNT_STREAMFLAGS_LOOPBACK) != 0;
+
 		return client->Initialize(
 			AUDCLNT_SHAREMODE_SHARED,
-			(loopback ? AUDCLNT_STREAMFLAGS_LOOPBACK : 0) | (eventBased ? AUDCLNT_STREAMFLAGS_EVENTCALLBACK : 0), 
+			flags,
 			referenceTime, 
 			0, 
 			mixFormat, 

@@ -18,7 +18,7 @@ namespace winecho {
 			throw std::runtime_error("Failed to get IMMDeviceEnumerator");
 		}
 
-		hr = enumerator->EnumAudioEndpoints(EDataFlow::eRender, DEVICE_STATE_ACTIVE, &c);
+		hr = enumerator->EnumAudioEndpoints(flow, DEVICE_STATE_ACTIVE, &c);
 		if (FAILED(hr) || c == nullptr) {
 			throw std::runtime_error("IMMDeviceEnumerator::EnumAudioEnpoints() failed");
 		}
@@ -59,7 +59,7 @@ namespace winecho {
 	}
 
 	std::shared_ptr<MyMMDevice> MyMMDeviceEnumerator::GetDeviceByName(std::wstring name) const {
-		for each (auto dev in devices)
+		for (auto dev : devices)
 		{
 			std::wstring fullName = dev->Description() + L" (" + dev->Name() + L")";
 
